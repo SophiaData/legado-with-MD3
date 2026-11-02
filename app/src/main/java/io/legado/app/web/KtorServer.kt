@@ -14,6 +14,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.CloseReason
+import io.ktor.websocket.close
 import io.ktor.utils.io.readAvailable
 import io.legado.app.api.ReturnData
 import io.legado.app.api.controller.BookController
