@@ -519,7 +519,7 @@ internal fun Preferences.toOtherSettings(): OtherSettings {
         defaultToRead = compatDsBoolean(PreferKey.defaultToRead) ?: false,
         notificationsPost = compatDsBoolean(PreferKey.notificationsPost) ?: true,
         ignoreBatteryPermission = compatDsBoolean(PreferKey.ignoreBatteryPermission) ?: true,
-        firebaseEnable = compatDsBoolean(PreferKey.firebaseEnable) ?: true,
+        firebaseEnable = compatDsBoolean(PreferKey.firebaseEnable) ?: false,
         defaultBookTreeUri = compatDsString(PreferKey.defaultBookTreeUri),
         antiAlias = compatDsBoolean(PreferKey.antiAlias) ?: false,
         replaceEnableDefault = compatDsBoolean(PreferKey.replaceEnableDefault) ?: true,

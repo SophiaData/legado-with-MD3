@@ -11,7 +11,7 @@ data class PrivateConfigUiState(
     val biometricEnabled: Boolean = false,
     val biometricStatus: PrivateBiometricStatus = PrivateBiometricStatus.Unavailable,
     val settings: PrivateAccessSettings = PrivateAccessSettings(),
-    val firebaseEnable: Boolean = true,
+    val firebaseEnable: Boolean = false,
     val showPasswordDialog: Boolean = false,
     val isBatteryIgnored: Boolean = false,
 ) {

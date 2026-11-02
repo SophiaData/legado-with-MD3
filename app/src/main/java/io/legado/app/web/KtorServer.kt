@@ -33,7 +33,7 @@ import splitties.init.appCtx
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-class KtorServer(private val port: Int) {
+class KtorServer(private val port: Int, private val accessToken: String = "") {
     private var server: EmbeddedServer<*, *>? = null
     private var wsServer: EmbeddedServer<*, *>? = null
     private val assetsWeb = AssetsWeb("web")
@@ -47,7 +47,6 @@ class KtorServer(private val port: Int) {
                 }
             }
             install(CORS) {
-                anyHost()
                 allowHeader(HttpHeaders.ContentType)
                 allowMethod(HttpMethod.Options)
                 allowMethod(HttpMethod.Post)
@@ -62,6 +61,7 @@ class KtorServer(private val port: Int) {
                 post("/deleteBook") { handlePost { BookController.deleteBook(it) } }
                 post("/saveBookProgress") { handlePost { BookController.saveBookProgress(it) } }
                 post("/addLocalBook") {
+                    if (!requireAuth()) return@post
                     WebService.serve()
                     val multipart = call.receiveMultipart()
                     var fileName: String? = null
@@ -136,6 +136,14 @@ class KtorServer(private val port: Int) {
                     WebService.serve()
                     var uri = call.request.path()
                     if (uri.endsWith("/")) uri += "index.html"
+                    // 页面入口下发同源 HttpOnly Cookie，内嵌 Web UI 的后续同源请求自动携带；
+                    // 第三方浏览器跨站无法读取，外部工具需改用 ?token= 或 X-Auth-Token。
+                    if (uri.endsWith("/index.html")) {
+                        call.response.header(
+                            HttpHeaders.SetCookie,
+                            "legado_web_token=$accessToken; Path=/; SameSite=Strict; HttpOnly"
+                        )
+                    }
                     val inputStream = assetsWeb.getInputStream(uri)
                     if (inputStream != null) {
                         inputStream.use { stream ->
@@ -173,9 +181,28 @@ class KtorServer(private val port: Int) {
         wsServer?.stop(0, 0)
     }
 
+    /**
+     * Web 服务访问鉴权：绑定局域网后必须校验令牌，避免同网段任意设备读写书架/书源。
+     * 令牌来源优先级：X-Auth-Token 头 / query token / 页面下发的 HttpOnly Cookie。
+     * accessToken 为空时（仅单元测试场景）跳过校验，保持与既有测试兼容。
+     */
+    private suspend fun RoutingContext.requireAuth(): Boolean {
+        if (accessToken.isEmpty()) return true
+        val provided = call.request.headers["X-Auth-Token"]
+            ?: call.request.queryParameters["token"]
+            ?: call.request.cookies["legado_web_token"]
+        return if (provided == accessToken) {
+            true
+        } else {
+            call.respond(HttpStatusCode.Unauthorized, "unauthorized: missing or invalid token")
+            false
+        }
+    }
+
     private suspend fun RoutingContext.handlePost(
         block: suspend (String?) -> ReturnData
     ) {
+        if (!requireAuth()) return
         WebService.serve()
         try {
             val postData = call.receiveText()
@@ -190,6 +217,7 @@ class KtorServer(private val port: Int) {
     private suspend fun RoutingContext.handleGet(
         block: (Map<String, List<String>>) -> ReturnData?
     ) {
+        if (!requireAuth()) return
         WebService.serve()
         try {
             val parameters = call.queryParameters.entries()

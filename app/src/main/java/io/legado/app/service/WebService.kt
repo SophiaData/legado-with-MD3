@@ -36,6 +36,7 @@ import org.koin.android.ext.android.inject
 import splitties.init.appCtx
 import splitties.systemservices.powerManager
 import splitties.systemservices.wifiManager
+import java.security.SecureRandom
 
 class WebService : BaseService() {
 
@@ -158,7 +159,8 @@ class WebService : BaseService() {
         val addressList = NetworkUtils.getLocalIPAddress()
         if (addressList.any()) {
             val port = getPort()
-            ktorServer = KtorServer(port)
+            val token = generateAccessToken()
+            ktorServer = KtorServer(port, token)
             try {
                 ktorServer?.start()
                 ktorServer?.startWebSocket(port + 1)
@@ -194,6 +196,13 @@ class WebService : BaseService() {
             port = 1122
         }
         return port
+    }
+
+    /** 每次启动生成随机访问令牌，经 Cookie 下发给内嵌 Web UI，外部工具需显式携带。 */
+    private fun generateAccessToken(): String {
+        val bytes = ByteArray(16)
+        SecureRandom().nextBytes(bytes)
+        return bytes.joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
     /**

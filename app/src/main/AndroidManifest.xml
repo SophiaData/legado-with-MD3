@@ -29,6 +29,11 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- 仅允许同签名应用访问本应用的 ReaderProvider，防止任意第三方 App 读取书架/书源或注入书源 -->
+    <permission
+        android:name="${applicationId}.permission.READER_PROVIDER"
+        android:protectionLevel="signature" />
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -460,6 +465,8 @@
             android:authorities="${applicationId}.readerProvider"
             android:enabled="true"
             android:exported="true"
+            android:readPermission="${applicationId}.permission.READER_PROVIDER"
+            android:writePermission="${applicationId}.permission.READER_PROVIDER"
             tools:ignore="ExportedContentProvider" />
         <provider
             android:name="androidx.core.content.FileProvider"
