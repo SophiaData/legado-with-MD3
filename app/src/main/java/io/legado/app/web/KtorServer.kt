@@ -13,6 +13,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
+import io.ktor.websocket.CloseReason
 import io.ktor.utils.io.readAvailable
 import io.legado.app.api.ReturnData
 import io.legado.app.api.controller.BookController
@@ -136,9 +137,11 @@ class KtorServer(private val port: Int, private val accessToken: String = "") {
                     WebService.serve()
                     var uri = call.request.path()
                     if (uri.endsWith("/")) uri += "index.html"
-                    // 页面入口下发同源 HttpOnly Cookie，内嵌 Web UI 的后续同源请求自动携带；
-                    // 第三方浏览器跨站无法读取，外部工具需改用 ?token= 或 X-Auth-Token。
-                    if (uri.endsWith("/index.html")) {
+                    // 仅当 URL 显式携带正确 token 时才下发同源 HttpOnly Cookie；未持令牌者无法通过访问首页自助获取。
+                    // 之后内嵌 Web UI 的后续同源请求自动携带该 Cookie；外部工具可继续用 ?token= / X-Auth-Token。
+                    if (uri.endsWith("/index.html") && accessToken.isNotEmpty() &&
+                        call.request.queryParameters["token"] == accessToken
+                    ) {
                         call.response.header(
                             HttpHeaders.SetCookie,
                             "legado_web_token=$accessToken; Path=/; SameSite=Strict; HttpOnly"
@@ -164,12 +167,15 @@ class KtorServer(private val port: Int, private val accessToken: String = "") {
             install(WebSockets)
             routing {
                 webSocket("/bookSourceDebug") {
+                    if (!wsAuthorized()) return@webSocket
                     BookSourceDebugWebSocket(this).handle()
                 }
                 webSocket("/rssSourceDebug") {
+                    if (!wsAuthorized()) return@webSocket
                     RssSourceDebugWebSocket(this).handle()
                 }
                 webSocket("/searchBook") {
+                    if (!wsAuthorized()) return@webSocket
                     BookSearchWebSocket(this).handle()
                 }
             }
@@ -197,6 +203,16 @@ class KtorServer(private val port: Int, private val accessToken: String = "") {
             call.respond(HttpStatusCode.Unauthorized, "unauthorized: missing or invalid token")
             false
         }
+    }
+
+    /** WebSocket 鉴权；Cookie 按域生效、跨端口同样携带，故同源不同端口的前端仍可自动通过。 */
+    private suspend fun DefaultWebSocketServerSession.wsAuthorized(): Boolean {
+        if (accessToken.isEmpty()) return true
+        val provided = call.request.queryParameters["token"]
+            ?: call.request.cookies["legado_web_token"]
+        if (provided == accessToken) return true
+        close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "unauthorized"))
+        return false
     }
 
     private suspend fun RoutingContext.handlePost(

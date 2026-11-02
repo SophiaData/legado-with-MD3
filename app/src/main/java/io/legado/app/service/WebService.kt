@@ -45,6 +45,7 @@ class WebService : BaseService() {
     companion object {
         var isRun = false
         var hostAddress = ""
+        var accessToken = ""
 
         fun start(context: Context) {
             context.startService<WebService>()
@@ -105,7 +106,7 @@ class WebService : BaseService() {
                         R.string.http_ip,
                         address.hostAddress,
                         getPort()
-                    )
+                    ) + "?token=$accessToken"
                 })
                 hostAddress = notificationList.first()
             } else {
@@ -159,8 +160,8 @@ class WebService : BaseService() {
         val addressList = NetworkUtils.getLocalIPAddress()
         if (addressList.any()) {
             val port = getPort()
-            val token = generateAccessToken()
-            ktorServer = KtorServer(port, token)
+            accessToken = generateAccessToken()
+            ktorServer = KtorServer(port, accessToken)
             try {
                 ktorServer?.start()
                 ktorServer?.startWebSocket(port + 1)
@@ -170,7 +171,7 @@ class WebService : BaseService() {
                         R.string.http_ip,
                         address.hostAddress,
                         getPort()
-                    )
+                    ) + "?token=$accessToken"
                 })
                 hostAddress = notificationList.first()
                 isRun = true
@@ -210,7 +211,7 @@ class WebService : BaseService() {
      */
     override fun startForegroundNotification() {
         val builder = NotificationCompat.Builder(this, AppConst.channelIdWeb)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setSmallIcon(R.drawable.ic_web_service_noti)
             .setOngoing(true)
             .setContentTitle(getString(R.string.web_service))
